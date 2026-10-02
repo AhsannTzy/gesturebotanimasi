@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hand Gesture Controller - Kendalikan Robot dengan Tanganmu</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --bg: #F7F9FC;
+    --white: #FFFFFF;
+    --ink: #14213D;
+    --muted: #5B6783;
+    --blue: #3B5BFF;
+    --yellow: #FFC93C;
+    --mint: #2EC4A0;
+    --coral: #FF6B6B;
+    --violet: #8B6CFF;
+    --blue-soft: #E3E9FF;
+    --line: #14213D;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    font-family: "DM Sans", "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+}
+h1, h2, h3 { font-family: "Bricolage Grotesque", "Segoe UI", Arial, sans-serif; margin: 0; line-height: 1.1; letter-spacing: -0.02em; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* NAV */
+.nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+.brand { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.brand i { width: 34px; height: 34px; background: var(--blue); border: 2px solid var(--line); border-radius: 10px; display: grid; place-items: center; font-style: normal; font-size: 18px; }
+.nav span { color: var(--muted); font-size: 14px; }
+
+/* BUTTONS */
+button, .btn {
+    font: inherit; font-weight: 700; font-size: 15px; color: var(--ink);
+    background: var(--yellow); border: 2px solid var(--line); border-radius: 12px;
+    padding: 12px 22px; cursor: pointer; text-decoration: none; display: inline-block;
+    box-shadow: 4px 4px 0 var(--line); transition: transform .12s, box-shadow .12s;
+}
+button:hover, .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--line); }
+button:active, .btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--line); }
+button:focus-visible, .btn:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.b-blue { background: var(--blue); color: #fff; }
+.b-mint { background: var(--mint); }
+.b-white { background: var(--white); }
+
+/* HERO */
+.hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; padding: 40px 0 72px; }
+.hero h1 { font-size: 62px; font-weight: 800; }
+.hero h1 mark { background: var(--yellow); color: var(--ink); padding: 0 10px; border-radius: 10px; }
+.hero p { font-size: 18px; color: var(--muted); max-width: 46ch; margin: 22px 0 30px; }
+.hero .actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.by { margin-top: 28px; font-size: 14px; color: var(--muted); }
+.by b { color: var(--ink); }
+
+.hero-art {
+    background: var(--blue); border: 2px solid var(--line); border-radius: 28px;
+    box-shadow: 8px 8px 0 var(--line); padding: 34px; text-align: center;
+}
+.hero-art .hand { font-size: 110px; line-height: 1; }
+.hero-art .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 22px; }
+.chip { background: var(--white); border: 2px solid var(--line); border-radius: 999px; padding: 6px 16px; font-weight: 700; font-size: 14px; }
+.hero-art .flow { color: #fff; font-weight: 700; margin-top: 20px; font-size: 14px; }
+
+/* SECTION */
+section { padding: 0 0 72px; }
+.sec-title { font-size: 38px; font-weight: 800; margin-bottom: 10px; }
+.sec-sub { color: var(--muted); max-width: 60ch; margin: 0 0 32px; }
+
+/* FEATURES */
+.feat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.f-card { border: 2px solid var(--line); border-radius: 20px; padding: 26px; background: var(--white); box-shadow: 5px 5px 0 var(--line); }
+.f-card .ic { width: 52px; height: 52px; border: 2px solid var(--line); border-radius: 14px; display: grid; place-items: center; font-size: 26px; margin-bottom: 16px; }
+.f-card h3 { font-size: 22px; margin-bottom: 8px; }
+.f-card p { margin: 0; color: var(--muted); font-size: 15px; }
+.f-card:nth-child(1) .ic { background: var(--yellow); }
+.f-card:nth-child(2) .ic { background: var(--mint); }
+.f-card:nth-child(3) .ic { background: var(--coral); }
+
+/* APP PANELS */
+.panel { background: var(--white); border: 2px solid var(--line); border-radius: 22px; padding: 28px; box-shadow: 6px 6px 0 var(--line); }
+.panel h3 { font-size: 24px; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.num { width: 34px; height: 34px; border-radius: 50%; background: var(--blue); color: #fff; border: 2px solid var(--line); display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
+.hint { color: var(--muted); font-size: 14px; margin: 0; }
+.stack { display: grid; gap: 26px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+
+.row { display: flex; gap: 12px; margin-top: 18px; }
+input {
+    flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
+    padding: 12px 16px; background: var(--bg); border: 2px solid var(--line); border-radius: 12px;
+}
+input::placeholder { color: #8D97AE; }
+
+.status { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 6px 14px; border: 2px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--yellow); }
+.status:has(.dot.green) { background: var(--mint); }
+.status:has(.dot.red) { background: var(--coral); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink); }
+
+/* CAMERA */
+.frame { margin: 18px 0; aspect-ratio: 1/1; border: 2px solid var(--line); border-radius: 18px; background: var(--blue-soft); display: grid; place-items: center; overflow: hidden; text-align: center; padding: 14px; }
+.frame .ph { font-size: 54px; }
+#webcam-container { width: 100%; height: 100%; display: grid; place-items: center; }
+#webcam-container canvas { width: 100%; height: 100%; display: block; border-radius: 12px; }
+
+.reading { margin-top: 22px; background: var(--bg); border: 2px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+.reading .name { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 38px; color: var(--blue); }
+.bar { height: 14px; border: 2px solid var(--line); border-radius: 999px; background: var(--white); overflow: hidden; margin-top: 10px; }
+.bar div { height: 100%; width: 0; background: var(--mint); transition: width .2s; }
+
+/* D-PAD */
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 12px; margin: 22px auto 0; max-width: 340px; aspect-ratio: 1/1; }
+.key { border: 2px solid var(--line); border-radius: 18px; background: var(--white); display: grid; place-items: center; font-weight: 800; font-size: 14px; text-align: center; transition: transform .12s, background .12s, box-shadow .12s; box-shadow: 4px 4px 0 var(--line); }
+.key b { display: block; font-size: 30px; line-height: 1.1; }
+.key.on { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--line); }
+#pad-MAJU { grid-area: 1 / 2; } #pad-KIRI { grid-area: 2 / 1; } #pad-STOP { grid-area: 2 / 2; }
+#pad-KANAN { grid-area: 2 / 3; } #pad-MUNDUR { grid-area: 3 / 2; }
+#pad-MAJU.on { background: var(--mint); } #pad-MUNDUR.on { background: var(--violet); color: #fff; }
+#pad-KIRI.on { background: var(--yellow); } #pad-KANAN.on { background: var(--yellow); }
+#pad-STOP.on { background: var(--coral); }
+.cmd { text-align: center; margin-top: 26px; }
+.cmd .big { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 40px; }
+
+.bt-ic { width: 84px; height: 84px; background: var(--blue); border: 2px solid var(--line); border-radius: 50%; display: grid; place-items: center; margin: 0 0 18px; }
+.bt-ic svg { width: 42px; height: 42px; }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; margin: 22px 0 16px; }
+
+/* STEPS */
+.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.how div { background: var(--blue-soft); border: 2px solid var(--line); border-radius: 18px; padding: 22px; }
+.how h3 { font-size: 20px; margin: 10px 0 6px; }
+.how p { margin: 0; font-size: 15px; color: var(--muted); }
+
+.footer { border-top: 2px solid var(--line); padding: 28px 0 40px; text-align: center; color: var(--muted); font-size: 14px; }
+.footer b { color: var(--ink); }
+
+/* ANIMASI */
+.scrollbar { position: fixed; top: 0; left: 0; height: 5px; width: 0; background: var(--blue); z-index: 99; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
+@keyframes sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes wave { 0%, 60%, 100% { transform: rotate(0); } 10% { transform: rotate(16deg); } 20% { transform: rotate(-10deg); } 30% { transform: rotate(16deg); } 40% { transform: rotate(-6deg); } 50% { transform: rotate(10deg); } }
+@keyframes floaty { 0%, 100% { translate: 0 0; } 50% { translate: 0 -14px; } }
+@keyframes drift { 0%, 100% { transform: translate(0, 0) rotate(0); } 50% { transform: translate(8px, -14px) rotate(14deg); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes ring { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes flip { from { transform: translateY(14px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes jiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+
+.nav { animation: rise .6s both; }
+.hero h1 { animation: rise .8s .1s both; }
+.hero p { animation: rise .8s .25s both; }
+.hero .actions { animation: rise .8s .4s both; }
+.hero .by { animation: rise .8s .55s both; }
+.hero-art { position: relative; animation: rise .9s .3s both, floaty 5s 1.2s ease-in-out infinite;
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .2s ease-out; }
+.hero h1 mark { position: relative; display: inline-block; background: none; z-index: 0; }
+.hero h1 mark::before { content: ""; position: absolute; inset: 0; background: var(--yellow); border-radius: 10px; z-index: -1; transform-origin: left; animation: sweep .8s .8s both cubic-bezier(.2, .8, .2, 1); }
+.hero-art .hand { display: inline-block; transform-origin: 70% 88%; animation: wave 3.2s 1.4s ease-in-out infinite; cursor: pointer; }
+.chip { transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), background .2s; }
+.hero-art .chip:hover { transform: translateY(-6px) rotate(-4deg); background: var(--yellow); }
+.deco { position: absolute; border: 2px solid var(--line); z-index: 2; }
+.deco.d1 { width: 38px; height: 38px; border-radius: 50%; background: var(--yellow); top: -18px; right: -14px; animation: drift 4s ease-in-out infinite; }
+.deco.d2 { width: 30px; height: 30px; border-radius: 8px; background: var(--coral); bottom: -14px; left: -14px; animation: drift 5s .6s ease-in-out infinite; }
+.deco.d3 { width: 22px; height: 22px; border-radius: 50%; background: var(--mint); top: 46%; left: -12px; animation: drift 3.6s 1s ease-in-out infinite; }
+
+.brand i { transition: transform .3s; }
+.brand:hover i { animation: jiggle .5s; }
+
+.rv { opacity: 0; transform: translateY(32px); transition: opacity .7s ease var(--d, 0s), transform .7s cubic-bezier(.2, .8, .2, 1) var(--d, 0s), box-shadow .2s; }
+.rv.in { opacity: 1; transform: none; }
+.rv.done { --d: 0s; transition: opacity .7s, transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s; }
+.f-card.done:hover, .how div.done:hover { transform: translate(-4px, -6px); box-shadow: 9px 11px 0 var(--line); }
+.f-card .ic { transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); }
+.f-card:hover .ic { animation: jiggle .6s; }
+.how div { box-shadow: 4px 4px 0 var(--line); }
+
+.status .dot { animation: blink 1.6s ease-in-out infinite; }
+.status:has(.dot.green) .dot, .status:has(.dot.red) .dot { animation: none; }
+.frame .ph { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
+.bt-ic { position: relative; }
+.bt-ic::after { content: ""; position: absolute; inset: -2px; border: 2px solid var(--blue); border-radius: 50%; animation: ring 2s ease-out infinite; }
+.reading .name.flip, .cmd .big.flip { animation: flip .35s cubic-bezier(.34, 1.56, .64, 1); }
+.key:hover { transform: translateY(-3px); }
+.key.on:hover { transform: translate(4px, 4px); }
+.num { transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); }
+.panel:hover .num { transform: rotate(360deg) scale(1.1); }
+
+/* DYNAMIC NOTCH */
+.notch {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 100;
+    display: flex; align-items: center; gap: 10px;
+    width: 138px; height: 38px; padding: 0 8px; overflow: hidden;
+    background: var(--ink); color: #fff; border-radius: 999px;
+    box-shadow: 0 6px 0 rgba(20, 33, 61, .18);
+    transition: width .55s cubic-bezier(.34, 1.56, .64, 1), height .55s cubic-bezier(.34, 1.56, .64, 1),
+                border-radius .55s cubic-bezier(.34, 1.56, .64, 1), padding .4s ease;
+}
+.notch.open { width: min(320px, 92vw); height: 68px; padding: 0 14px; border-radius: 34px; }
+.n-ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; font-size: 13px; font-weight: 800; color: var(--ink); background: var(--blue); transition: width .45s, height .45s, font-size .45s, background .3s; }
+.notch.open .n-ic { width: 44px; height: 44px; font-size: 22px; }
+.n-ic.pop { animation: pop .5s cubic-bezier(.34, 1.56, .64, 1); }
+.notch:not(.open) .n-ic { animation: breathe 2.4s ease-in-out infinite; }
+.n-tx { display: flex; flex-direction: column; min-width: 0; white-space: nowrap; line-height: 1.25; }
+.n-tx b { font-size: 13px; font-weight: 700; transition: font-size .4s; }
+.n-tx span { font-size: 12px; color: #B7C2DA; max-height: 0; opacity: 0; transition: max-height .4s, opacity .3s; }
+.notch.open .n-tx b { font-size: 16px; font-family: "Bricolage Grotesque", sans-serif; }
+.notch.open .n-tx span { max-height: 20px; opacity: 1; transition-delay: .15s; }
+@keyframes pop { 0% { transform: scale(.4) rotate(-20deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+
+@media (max-width: 800px) {
+    .hero { grid-template-columns: 1fr; gap: 36px; padding-bottom: 52px; }
+    .hero h1 { font-size: 42px; }
+    .feat, .how, .grid2 { grid-template-columns: 1fr; }
+    .row { flex-direction: column; }
+    .sec-title { font-size: 30px; }
+    .nav span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } html { scroll-behavior: auto; } }
+</style>
+</head>
+
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<div class="notch" id="notch" role="status" aria-live="polite">
+    <div class="n-ic" id="nIc">🖐️</div>
+    <div class="n-tx"><b id="nTitle">GestureBot</b><span id="nSub"></span></div>
+</div>
+<div class="wrap">
+
+    <nav class="nav">
+        <div class="brand"><i>🖐️</i> GestureBot</div>
+    </nav>
+
+    <!-- HERO -->
+    <header class="hero">
+        <div>
+            <h1>Kendalikan robot cukup dengan <mark>gerakan tangan</mark></h1>
+            <p>Tunjukkan tanganmu ke kamera. Kecerdasan buatan membaca gesturnya dan langsung mengirim perintah ke robot micro:bit lewat Bluetooth, tanpa tombol dan tanpa layar sentuh.</p>
+            <div class="actions">
+                <a class="btn b-blue" href="#coba">Coba Sekarang</a>
+                <a class="btn b-white" href="#cara">Lihat Cara Kerja</a>
+            </div>
+            <div class="by">Dibuat oleh <b>Ahsan Abdullah Sigit</b></div>
+        </div>
+        <div class="hero-art" id="heroArt">
+            <span class="deco d1"></span><span class="deco d2"></span><span class="deco d3"></span>
+            <div class="hand">🖐️</div>
+            <div class="chips">
+                <span class="chip">Maju</span><span class="chip">Mundur</span><span class="chip">Kiri</span><span class="chip">Kanan</span><span class="chip">Stop</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- TENTANG -->
+    <section>
+        <h2 class="sec-title">Kenapa gesture control?</h2>
+        <p class="sec-sub">Sistem Pengenalan Isyarat Tangan (<i>Hand Gesture Recognition</i>) mendeteksi dan mengklasifikasikan gerakan tangan secara <i>real-time</i> dari kamera biasa.</p>
+        <div class="feat">
+            <div class="f-card"><div class="ic">⚡</div><h3>Real-time</h3><p>Model Machine Learning membaca gestur langsung dari kamera dan menerjemahkannya menjadi perintah digital.</p></div>
+            <div class="f-card"><div class="ic">🧼</div><h3>Touchless</h3><p>Interaksi yang intuitif dan higienis, tanpa perlu menyentuh perangkat fisik atau layar.</p></div>
+            <div class="f-card"><div class="ic">🏠</div><h3>Banyak kegunaan</h3><p>Cocok untuk smart home, navigasi presentasi nirkabel, interaksi VR, hingga asisten bahasa isyarat.</p></div>
+        </div>
+    </section>
+
+    <!-- CARA -->
+    <section id="cara">
+        <h2 class="sec-title">Cara kerjanya</h2>
+        <p class="sec-sub">Tiga langkah dari model sampai robot bergerak.</p>
+        <div class="how">
+            <div><span class="chip">Langkah 1</span><h3>Muat model</h3><p>Tempel link model Teachable Machine milikmu.</p></div>
+            <div><span class="chip">Langkah 2</span><h3>Nyalakan kamera</h3><p>Tunjukkan gesture, AI akan mengenalinya.</p></div>
+            <div><span class="chip">Langkah 3</span><h3>Hubungkan robot</h3><p>Sambungkan micro:bit, perintah terkirim otomatis.</p></div>
+        </div>
+    </section>
+
+    <!-- APLIKASI -->
+    <section id="coba">
+        <h2 class="sec-title">Coba sekarang</h2>
+        <p class="sec-sub">Gunakan Chrome atau Edge agar kamera dan Bluetooth bisa berjalan.</p>
+
+        <div class="stack">
+            <div class="panel">
+                <h3><span class="num">1</span> Teachable Machine</h3>
+                <p class="hint">Tempel link model Teachable Machine kamu di bawah.</p>
+                <div class="row">
+                    <input id="modelUrl" type="text" placeholder="https://teachablemachine.withgoogle.com/models/...">
+                    <button class="b-blue" onclick="loadModel()">Load Model</button>
+                </div>
+                <div id="modelStatus" class="status"><span class="dot"></span> Model belum dimuat</div>
+            </div>
+
+            <div class="grid2">
+                <div class="panel">
+                    <h3><span class="num">2</span> Kamera</h3>
+                    <div class="frame">
+                        <div id="webcam-container"><div><div class="ph">📷</div><p class="hint">Kamera belum aktif</p></div></div>
+                    </div>
+                    <button class="b-mint" onclick="startCamera()">Start Camera</button>
+
+                    <div class="reading">
+                        <p class="hint">Gesture terdeteksi</p>
+                        <div id="gestureName" class="name">---</div>
+                        <p class="hint">Confidence: <b id="confidence">0%</b></p>
+                        <div class="bar"><div id="confidenceBar"></div></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3><span class="num">3</span> micro:bit Bluetooth</h3>
+                    <p class="hint">micro:bit harus menjalankan Bluetooth UART Service.</p>
+                    <div style="margin-top:20px" class="bt-ic">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg>
+                    </div>
+                    <div id="bluetoothStatus" class="status" style="margin-top:0"><span class="dot"></span> Belum terhubung</div>
+                    <div class="btns">
+                        <button class="b-blue" onclick="connectBluetooth()">Connect micro:bit</button>
+                        <button class="b-white" onclick="disconnectBluetooth()">Disconnect</button>
+                    </div>
+
+                    <div class="pad">
+                        <div class="key" id="pad-MAJU"><div><b>↑</b>Maju</div></div>
+                        <div class="key" id="pad-KIRI"><div><b>←</b>Kiri</div></div>
+                        <div class="key" id="pad-STOP"><div><b>■</b>Stop</div></div>
+                        <div class="key" id="pad-KANAN"><div><b>→</b>Kanan</div></div>
+                        <div class="key" id="pad-MUNDUR"><div><b>↓</b>Mundur</div></div>
+                    </div>
+                    <div class="cmd">
+                        <p class="hint">Command terakhir</p>
+                        <div id="lastCommand" class="big">---</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        Hand Gesture Bluetooth Controller · Developed by <b>Ahsan Abdullah Sigit</b>
+    </footer>
+</div>
+
+<script>
+let model = null, webcam = null, cameraRunning = false;
+let bluetoothDevice = null, uartCharacteristic = null;
+let lastCommand = "", lastCommandTime = 0;
+
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+
+function setStatus(id, text, type = "") {
+    const dot = type === "success" ? "green" : type === "error" ? "red" : "";
+    document.getElementById(id).innerHTML = `<span class="dot ${dot}"></span> ${text}`;
+}
+
+/* DYNAMIC NOTCH */
+let notchTimer, notchReset;
+function showNotch(icon, title, sub, color = "var(--mint)", hold = 2800) {
+    const n = document.getElementById("notch"), ic = document.getElementById("nIc");
+    const t = document.getElementById("nTitle"), s = document.getElementById("nSub");
+    const changed = t.textContent !== title || !n.classList.contains("open");
+    clearTimeout(notchTimer); clearTimeout(notchReset);
+    ic.textContent = icon; ic.style.background = color;
+    t.textContent = title; s.textContent = sub || "";
+    n.classList.add("open");
+    if (changed) { ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop"); }
+    notchTimer = setTimeout(() => {
+        n.classList.remove("open");
+        notchReset = setTimeout(() => {
+            ic.textContent = "🖐️"; ic.style.background = "var(--blue)";
+            t.textContent = "GestureBot"; s.textContent = "";
+        }, 450);
+    }, hold);
+}
+
+const NOTCH_ICONS = {
+    MAJU: ["↑", "var(--mint)"], MUNDUR: ["↓", "var(--violet)"],
+    KIRI: ["←", "var(--yellow)"], KANAN: ["→", "var(--yellow)"], STOP: ["■", "var(--coral)"]
+};
+
+/* Sorot tombol arah sesuai command */
+function highlightPad(command) {
+    document.querySelectorAll(".key").forEach(k => k.classList.remove("on"));
+    const key = document.getElementById("pad-" + command);
+    if (key) key.classList.add("on");
+}
+
+async function loadModel() {
+    let url = document.getElementById("modelUrl").value.trim();
+    if (!url) { alert("Masukkan link Teachable Machine terlebih dahulu."); return; }
+    if (!url.includes("teachablemachine.withgoogle.com/models/")) {
+        alert("Link harus berupa link model Teachable Machine."); return;
+    }
+    try {
+        setStatus("modelStatus", "Memuat model...");
+        if (!url.endsWith("/")) url += "/";
+        model = await tmImage.load(url + "model.json", url + "metadata.json");
+        setStatus("modelStatus", "Model siap - " + model.getTotalClasses() + " gesture", "success");
+        showNotch("✓", "Model siap", model.getTotalClasses() + " gesture dikenali");
+    } catch (error) {
+        console.error(error);
+        setStatus("modelStatus", "Gagal memuat model", "error");
+        showNotch("!", "Model gagal dimuat", "Periksa link model kamu", "var(--coral)");
+        alert("Model gagal dimuat.\n\n" + error.message);
+    }
+}
+
+async function startCamera() {
+    if (!model) { alert("Load model Teachable Machine terlebih dahulu."); return; }
+    if (webcam) return;
+    try {
+        webcam = new tmImage.Webcam(480, 480, true);
+        await webcam.setup();
+        await webcam.play();
+        const container = document.getElementById("webcam-container");
+        container.innerHTML = "";
+        container.appendChild(webcam.canvas);
+        cameraRunning = true;
+        showNotch("📷", "Kamera aktif", "Tunjukkan gesture ke kamera", "var(--yellow)");
+        requestAnimationFrame(predictionLoop);
+    } catch (error) {
+        console.error(error);
+        alert("Kamera tidak dapat dibuka.\n\nPastikan browser memiliki izin kamera.");
+    }
+}
+
+async function predictionLoop() {
+    if (!cameraRunning) return;
+    webcam.update();
+    await predict();
+    requestAnimationFrame(predictionLoop);
+}
+
+function getMappings() {
+    return [
+        { gesture: "maju", command: "MAJU" },
+        { gesture: "mundur", command: "MUNDUR" },
+        { gesture: "kiri", command: "KIRI" },
+        { gesture: "kanan", command: "KANAN" },
+        { gesture: "stop", command: "STOP" }
+    ];
+}
+
+async function predict() {
+    if (!model || !webcam) return;
+    const predictions = await model.predict(webcam.canvas);
+
+    let best = predictions[0];
+    for (const p of predictions) if (p.probability > best.probability) best = p;
+
+    const percentage = Math.round(best.probability * 100);
+    const gn = document.getElementById("gestureName");
+    if (gn.textContent !== best.className) {
+        gn.textContent = best.className;
+        gn.classList.remove("flip"); void gn.offsetWidth; gn.classList.add("flip");
+    }
+    document.getElementById("confidence").textContent = percentage + "%";
+    document.getElementById("confidenceBar").style.width = percentage + "%";
+
+    /* Confidence minimum 80% */
+    if (best.probability < 0.80) return;
+
+    const gesture = best.className.trim().toLowerCase();
+    const mapping = getMappings().find(item => item.gesture === gesture);
+    const command = mapping ? mapping.command : gesture.toUpperCase();
+    const now = Date.now();
+
+    /* Rate limit command */
+    if (command !== lastCommand || now - lastCommandTime > 700) {
+        lastCommand = command;
+        lastCommandTime = now;
+        sendCommand(command);
+    }
+}
+
+async function connectBluetooth() {
+    if (!navigator.bluetooth) {
+        alert("Browser tidak mendukung Web Bluetooth.\n\nGunakan Google Chrome atau Microsoft Edge.");
+        return;
+    }
+    try {
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [UART_SERVICE]
+        });
+        bluetoothDevice.addEventListener("gattserverdisconnected", bluetoothDisconnected);
+        const server = await bluetoothDevice.gatt.connect();
+        const service = await server.getPrimaryService(UART_SERVICE);
+        uartCharacteristic = await service.getCharacteristic(UART_RX);
+        setStatus("bluetoothStatus", "Terhubung: " + (bluetoothDevice.name || "micro:bit"), "success");
+        showNotch("🔵", "micro:bit terhubung", bluetoothDevice.name || "Bluetooth siap");
+    } catch (error) {
+        console.error(error);
+        setStatus("bluetoothStatus", "Gagal terhubung", "error");
+        showNotch("!", "Gagal terhubung", "Coba sambungkan lagi", "var(--coral)");
+    }
+}
+
+function bluetoothDisconnected() {
+    uartCharacteristic = null;
+    setStatus("bluetoothStatus", "Bluetooth terputus", "error");
+    showNotch("✕", "Bluetooth terputus", "micro:bit tidak terhubung", "var(--coral)");
+}
+
+async function sendCommand(command) {
+    const lc = document.getElementById("lastCommand");
+    if (lc.textContent !== command) {
+        lc.textContent = command;
+        lc.classList.remove("flip"); void lc.offsetWidth; lc.classList.add("flip");
+    }
+    highlightPad(command);
+    const ni = NOTCH_ICONS[command] || ["•", "var(--blue)"];
+    showNotch(ni[0], command, uartCharacteristic ? "Terkirim ke micro:bit" : "Bluetooth belum terhubung", ni[1], 2200);
+
+    /* Jika Bluetooth belum connect, command tetap ditampilkan. */
+    if (!uartCharacteristic) return;
+    try {
+        await uartCharacteristic.writeValue(new TextEncoder().encode(command + "\n"));
+    } catch (error) {
+        console.error("ERROR Kirim:", error);
+    }
+}
+
+function disconnectBluetooth() {
+    try {
+        if (bluetoothDevice && bluetoothDevice.gatt.connected) bluetoothDevice.gatt.disconnect();
+    } catch (error) { console.error(error); }
+    uartCharacteristic = null;
+    bluetoothDevice = null;
+    setStatus("bluetoothStatus", "Belum terhubung");
+    showNotch("✕", "Disconnect", "micro:bit diputuskan", "var(--coral)");
+}
+/* ANIMASI: muncul saat di-scroll */
+document.querySelectorAll(".sec-title, .sec-sub, .f-card, .how > div, .panel").forEach(el => {
+    el.classList.add("rv");
+    const i = [...el.parentNode.children].indexOf(el);
+    el.style.setProperty("--d", (i % 3) * 0.12 + "s");
+});
+const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("in");
+        setTimeout(() => e.target.classList.add("done"), 1200);
+        io.unobserve(e.target);
+    });
+}, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+document.querySelectorAll(".rv").forEach(el => io.observe(el));
+
+/* ANIMASI: bar scroll */
+const bar = document.getElementById("scrollbar");
+window.addEventListener("scroll", () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = (h > 0 ? scrollY / h * 100 : 0) + "%";
+}, { passive: true });
+
+/* ANIMASI: kartu hero miring mengikuti kursor */
+const heroArt = document.getElementById("heroArt");
+if (matchMedia("(hover: hover)").matches) {
+    const hero = document.querySelector(".hero");
+    hero.addEventListener("mousemove", e => {
+        const r = heroArt.getBoundingClientRect();
+        const x = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+        const y = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+        heroArt.style.setProperty("--ry", (x * 14) + "deg");
+        heroArt.style.setProperty("--rx", (-y * 14) + "deg");
+    });
+    hero.addEventListener("mouseleave", () => {
+        heroArt.style.setProperty("--rx", "0deg");
+        heroArt.style.setProperty("--ry", "0deg");
+    });
+}
+
+/* Animasi pembuka */
+window.addEventListener("load", () => setTimeout(() => showNotch("🖐️", "GestureBot siap", "Kendalikan robot dengan tangan", "var(--blue)", 2600), 700));
+</script>
+</body>
+</html>
